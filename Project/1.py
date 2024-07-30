@@ -54,69 +54,6 @@ def app():
             break
 
 def transaction():
-    # transaction_1 = """START TRANSACTION;
-
-    # UPDATE `product`
-    # SET `Price` = 15.99
-    # WHERE `Product_id` = 123;
-
-    # COMMIT;
-    # START TRANSACTION;
-
-    # UPDATE `product`
-    # SET `Inventory_Quantity` = `Inventory_Quantity` - 1
-    # WHERE `Product_id` = 123;
-
-    # COMMIT;"""
-    # transaction_2 = """START TRANSACTION;
-
-    # SELECT * FROM product WHERE Product_id = 1;
-
-    # COMMIT;
-    # START TRANSACTION;
-
-    # SELECT * FROM customer WHERE Customer_ID = 1;
-
-    # COMMIT;"""
-    # transaction_3 = """START TRANSACTION;
-    # -- calculate the total cost of the order
-    # SELECT SUM(p.Price * p.Cart_Quantity) AS total_cost
-    # FROM product p
-    # JOIN contains_ c ON c.product_id = p.product_id
-    # WHERE c.order_id = 2;
-    # -- Update the payment status to "Paid" And Update the Amount
-    # UPDATE Payment
-    # SET payment_status = 'Paid', Amount = (SELECT SUM(p.Price * p.Cart_Quantity)
-    # FROM product p
-    # JOIN contains_ c ON c.product_id = p.product_id
-    # WHERE c.order_id = 2)
-    # WHERE order_id = 2;
-    # COMMIT;
-    # -- Update the order status to "Shipped" and assign a delivery driver to the order. 
-    # START TRANSACTION;
-    # -- update the order status to "Shipped"
-    # UPDATE orders
-    # SET order_status = 'Shipped'
-    # WHERE order_id = 2;
-    # -- assign a delivery driver to the order
-    # UPDATE order_
-    # SET driver_id = (
-    # SELECT Driver_ID FROM deliverydriver ORDER BY RAND() LIMIT 1
-    # )
-    # WHERE order_id = 2;
-    # COMMIT;"""
-
-    # transaction_4 = """START TRANSACTION;
-    # SELECT Product_id, Availability, Product_Description, Price, ProductName, Inventory_Quantity FROM product WHERE Product_id = 1;
-    # UPDATE product SET Price = Price - 50 WHERE Product_id = 1;
-    # SELECT Product_id, Availability, Product_Description, Price, ProductName, Inventory_Quantity FROM product WHERE Product_id = 2;
-    # UPDATE product SET Price = Price + 100 WHERE Product_id = 2;
-    # COMMIT;
-
-    # START TRANSACTION;
-    # SELECT Product_id, Availability, Product_Description, Price, ProductName, Inventory_Quantity FROM product WHERE Product_id = 4;
-    # UPDATE product SET Inventory_Quantity = 100 WHERE Product_id = 4;
-    # COMMIT;"""
     transaction_new1 = """START TRANSACTION;
 
     SELECT * FROM customer WHERE Customer_ID=2;
@@ -184,6 +121,7 @@ def transaction():
                 print("Transaction1 was successful\n")
             except Error as err:
                 print(err)
+                connection.rollback()
         elif z == 2:
             print(transaction_new2)
             print("\n")
@@ -205,6 +143,7 @@ def transaction():
                 print("Transaction2 was successful\n")
             except Error as err:
                 print(err)
+                connection.rollback()
         elif z == 3:
             print(transaction_new3)
             print("\n")
@@ -240,6 +179,7 @@ def transaction():
                 print("Transaction3 was successful\n")
             except Error as err:
                 print(err)
+                connection.rollback()
         cursor.close()
 
 def trigger():
@@ -285,15 +225,20 @@ def trigger():
             try:
                 cursor.execute(Trigger_1)
                 print("Trigger1 was successful\n")
-                x = int(input("Enter the Order_ID whom Order Status you want to change to Shipped: "))
-                Query = f"""UPDATE Order_ SET Order_Status = 'shipped' WHERE Order_ID = {x}"""
-                cursor.execute(Query)
-                connection.commit()
-                Query1 = """SELECT * FROM email_notifications"""
-                cursor.execute(Query1)
-                result = cursor.fetchall()
             except Error as err:
-                print(err)
+                if 'already exists' in str(err):
+                    print("Trigger already exists, continuing execution.\n")
+                else:
+                    print(f"Error creating trigger: {err}")
+            x = int(input("Enter the Order_ID whom Order Status you want to change to Shipped: "))
+            Query = f"""UPDATE Order_ SET Order_Status = 'Shipped' WHERE Order_ID = {x}"""
+            cursor.execute(Query)
+            connection.commit()
+            
+            Query1 = """SELECT * FROM email_notifications"""
+            cursor.execute(Query1)
+            result = cursor.fetchall()
+                
             panda1 = []
             for i in result:
                 i = list(i)
@@ -310,15 +255,19 @@ def trigger():
             try:
                 cursor.execute(Trigger_2)
                 print("Trigger2 was successful\n")
-                x = int(input("Enter the Order_ID whom Order Status you want to change to Confirmed: "))
-                Query = f"""UPDATE Order_ SET Order_Status = 'Confirmed' WHERE Order_ID = {x}"""
-                cursor.execute(Query)
-                connection.commit()
-                Query1 = f"""SELECT * FROM Payment WHERE Order_ID = {x}"""
-                cursor.execute(Query1)
-                result = cursor.fetchall()
             except Error as err:
-                print(err)
+                if 'already exists' in str(err):
+                    print("Trigger already exists, continuing execution.\n")
+                else:
+                    print(f"Error creating trigger: {err}")
+
+            x = int(input("Enter the Order_ID whom Order Status you want to change to Confirmed: "))
+            Query = f"""UPDATE Order_ SET Order_Status = 'Confirmed' WHERE Order_ID = {x}"""
+            cursor.execute(Query)
+            connection.commit()
+            Query1 = f"""SELECT * FROM Payment WHERE Order_ID = {x}"""
+            cursor.execute(Query1)
+            result = cursor.fetchall()
             panda1 = []
             for i in result:
                 i = list(i)
@@ -1016,15 +965,17 @@ def order_under_driver(driver_id):
     columns = ["Order_ID", "Order_Date", "Order_Status","Customer_ID", "Driver_ID"]
     df1 = pd.DataFrame(panda1, columns=columns)
 
-    print(df1)
-    print("\n")
     if(len(result)!=0):
+        print(df1)
+        print("\n")
         print("Do you want to change Order Status of any of these Orders?")
         print("1) Yes")
         print("2) No")
         ins = input("Enter your selection: ")
         if(ins == '1' or ins == "Yes"):
             change_order_status(driver_id)
+    else:
+        print("No orders for now!!")
 
 
 def change_order_status(driver_id):
@@ -1212,8 +1163,8 @@ def place_order(c_id):
 
         columns = ["Product_ID", "Product_Name", "Availabilty", "Description", "Price", "Inventory Quantity"]
         df1 = pd.DataFrame(panda1, columns=columns)
-        print(df1)
-        print("\n")
+    print(df1)
+    print("\n")
 
     cart_items = {}
     while True:
